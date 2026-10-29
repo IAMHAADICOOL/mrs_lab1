@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>reynolds_flocking</name>
+  <version>1.0.0</version>
+  <description>Reynolds flocking rules (separation, alignment, cohesion) with obstacle avoidance for robots in the Stage simulator</description>
+  <maintainer email="tasneemkauseramu@gmail.com">haadi</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sphero_stage</depend>
+
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

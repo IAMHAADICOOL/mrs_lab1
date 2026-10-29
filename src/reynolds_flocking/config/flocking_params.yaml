@@ -1,0 +1,40 @@
+# Parameters for the Reynolds flocking node.
+# num_robots is NOT set here: the launch file reads it from
+# sphero_stage/launch/launch_params.yaml so both always match.
+
+reynolds_flocking:
+  ros__parameters:
+    control_rate: 20.0              # control steps per second (dt = 1 / control_rate)
+
+    # Neighbourhood (what a robot can "see")
+    neighbour_radius: 1.0           # metres
+    fov_degrees: 360.0              # field of view, 360 = sees all around, 270 = blind spot behind
+
+    # Reynolds rule weights (c_s, c_a, c_c in the lecture formula)
+    weight_separation: 0.06         # c_s, push away from neighbours
+    weight_alignment: 1.0           # c_a, match neighbours' velocity
+    weight_cohesion: 0.5            # c_c, move to neighbours' centre
+    separation_distance_power: 3.0  # 2.0 = lecture formula (push ~ 1/d), 3.0 = push ~ 1/d^2 (stiffer, chosen)
+
+    # Robot limits (what a real robot could do)
+    max_speed: 0.3                  # m/s
+    min_speed: 0.15                 # m/s, robots never stop (like birds)
+    max_acceleration: 0.5           # m/s^2
+    initial_speed: 0.15             # m/s, size of the random start velocity
+    random_seed: 42                 # same seed = same run every time
+
+    # Obstacle (wall) avoidance
+    obstacle_mode: 'steer'          # 'steer' (steer to avoid), 'field' (force field) or 'none'
+    weight_obstacle: 1.0            # strength of the obstacle acceleration (m/s^2)
+    look_ahead: 0.8                 # steer: how far ahead the robot looks (m)
+    clearance: 0.15                 # steer: half width of the tube in front of the robot (m)
+    touch_distance: 0.2             # steer: touch sensor range (m)
+    field_width: 0.25               # field: distance where the push is strongest (m)
+
+    # How the accelerations are combined
+    combine_mode: 'weighted_sum'    # 'weighted_sum' or 'priority'
+
+    # Logging for plots
+    log_to_csv: true
+    log_folder: '~/flocking_logs'
+    run_label: 'run'                # name at the start of the log file
