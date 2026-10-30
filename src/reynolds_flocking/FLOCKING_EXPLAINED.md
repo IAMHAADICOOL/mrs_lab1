@@ -31,11 +31,12 @@ direction) **emerges** from these simple local rules.
 reynolds_flocking/
 ├── config/flocking_params.yaml        all numbers you can tune (weights, radius, FOV, ...)
 ├── launch/flocking.launch.py          starts the node with the parameters
+├── launch/record_bag.launch.py        records a bag to the log_folder set in the parameters
 ├── reynolds_flocking/
 │   ├── flocking_node.py               ROS part: subscribers, publishers, the main loop
 │   ├── reynolds_rules.py              math: neighbours, separation, alignment, cohesion
 │   ├── obstacle_avoidance.py          math: reading the map, steer-to-avoid, force field
-│   └── plot_flocking.py               draws the graphs from the CSV log
+│   └── plot_flocking.py               draws the graphs from a ROS 2 bag
 ├── package.xml, setup.py, setup.cfg   ROS package boilerplate
 └── FLOCKING_EXPLAINED.md              this file
 ```
@@ -87,8 +88,6 @@ Terminal 2 – the flocking controller:
 
 ```bash
 ros2 launch reynolds_flocking flocking.launch.py
-# optional: give the log file a name
-ros2 launch reynolds_flocking flocking.launch.py run_label:=fov_270
 ```
 
 Stop with `Ctrl+C`. The robots stop by themselves after 5 seconds (the simulator has a
@@ -103,23 +102,35 @@ Option B – change single values from the command line (the YAML stays as it is
 ```bash
 ros2 run reynolds_flocking flocking_node --ros-args \
     --params-file src/reynolds_flocking/config/flocking_params.yaml \
-    -p num_robots:=10 -p run_label:=fov_270 -p fov_degrees:=270.0
+    -p num_robots:=10 -p fov_degrees:=270.0
 ```
 
 > **Write decimal numbers with a dot** (`270.0`, not `270`). ROS checks the type:
 > a parameter that was declared as a decimal number refuses a whole number.
 
-### 3.5 Make the plots
+### 3.5 Record a bag and make the plots
+
+Start the recording in its own terminal, **before** the flocking node:
 
 ```bash
-ros2 run reynolds_flocking plot_flocking                       # newest log
-ros2 run reynolds_flocking plot_flocking --csv_file ~/flocking_logs/fov_270_20261028_204614.csv --robot 3
-ros2 run reynolds_flocking plot_flocking --show                # also open the windows
-ros2 run reynolds_flocking plot_flocking --plot_folder ~/my_plots   # choose where to save
+ros2 launch reynolds_flocking record_bag.launch.py bag_name:=fov_270
 ```
 
-The pictures are saved in a folder next to the CSV file (`..._plots/`), or in
-`--plot_folder` if you give one, and a short summary of the swarm metrics is printed.
+This runs `ros2 bag record` for the `cmd_vel`, `odom` and `flocking/` topics of every robot. The
+bag is saved in `<log_folder>/bags/fov_270`, a folder that must not exist yet. `log_folder` is set
+in `config/flocking_params.yaml` under `logging`. When the run is over, stop the flocking node,
+then stop the recording with `Ctrl+C`, because the bag is only finished when the recorder closes
+it. Then plot it:
+
+```bash
+ros2 run reynolds_flocking plot_flocking --bag_name fov_270
+ros2 run reynolds_flocking plot_flocking --bag_name fov_270 --robot 3
+ros2 run reynolds_flocking plot_flocking --bag_name fov_270 --show   # also open the windows
+ros2 run reynolds_flocking plot_flocking --bag_name fov_270 --plot_folder ~/my_plots
+ros2 run reynolds_flocking plot_flocking --bag_folder ~/somewhere/fov_270   # a bag saved elsewhere
+```
+
+The pictures are saved in `<log_folder>/plots/fov_270`, or in `--plot_folder` if you give one.
 
 You can also watch the values live in PlotJuggler or `rqt_plot`. The node publishes, for every robot:
 
@@ -202,11 +213,7 @@ The callback finds out which robot a message belongs to from the message itself 
 The `/map` subscriber uses a special QoS setting called "transient local". The map server
 sends the map only once, and this setting lets a node that starts later still receive it.
 
-**Part 4 – Open the CSV log** (if `log_to_csv` is true). A `<label>_<date>.csv` file
-and a `<label>_<date>_params.yaml` file (all parameters of the run) are created
-in `~/flocking_logs`.
-
-**Part 5 – Start the timer.** `self.create_timer(self.dt, self.control_step)` means
+**Part 4 – Start the timer.** `self.create_timer(self.dt, self.control_step)` means
 "call `control_step` every 0.05 seconds".
 
 ---
@@ -273,7 +280,7 @@ Runs 20 times per second.
 3. **Phase 1 – compute.** `compute_robot(robot)` for every robot. The result is stored and
    nothing is sent yet.
 4. **Phase 2 – apply.** For every robot: store the new velocity, update the heading, send
-   `cmd_vel`, publish the accelerations and write a CSV row.
+   `cmd_vel` and publish the accelerations.
 
 **Why two phases?** All robots should decide based on the **same snapshot** of the world,
 as if they all decided at the same moment. If robot 0's new velocity were applied before
@@ -667,48 +674,56 @@ $$
 
 `angular.z` is always 0, so the robots never rotate and $\psi$ stays 0.
 
-**`publish_accelerations()` and `write_log_row()`** send the five acceleration vectors on the
-plotting topics and write one CSV row per robot per step.
+**`publish_accelerations()`** sends the five acceleration vectors on the plotting topics, so
+`ros2 bag` can record them.
 
 ---
 
 ## 9. Shutting down
 
-When you press `Ctrl+C`, `rclpy.spin` stops, the CSV file is closed, and if ROS is still alive
+When you press `Ctrl+C`, `rclpy.spin` stops, and if ROS is still alive
 a zero velocity is sent to every robot. If a `Ctrl+C` arrives in the middle of a control step,
 `control_step` checks `rclpy.ok()` before each publish and simply returns, instead of crashing
 with "publisher's context is invalid".
 
 ---
 
-## 10. The plots and the swarm metrics (`plot_flocking.py`)
+## 10. The plots (`plot_flocking.py`)
+
+`plot_flocking.py` reads a ROS 2 bag and draws three pictures:
 
 | File | Lab requirement |
 |---|---|
 | `velocities_all_robots.png` | 4a – commanded vs. actual speed of **every** robot over time |
 | `velocity_robot_X.png` | 4a – commanded vs. actual $v_x$ and $v_y$ of one robot |
 | `accelerations_robot_X.png` | 4b – separation, alignment, cohesion, obstacle and **total** acceleration of one robot (x, y and size) |
-| `swarm_metrics.png` | supports the parameter analysis (item 3) |
-| `trajectories.png` | the path of every robot seen from above |
 
-Commanded and actual velocity are almost identical, because Stage has no inertia. The
-actual one is one odom message behind.
+**Where the data comes from:**
 
-**Swarm metrics** (computed for every control step):
+| Line in the plot | Topic in the bag |
+|---|---|
+| commanded velocity | `/robot_X/cmd_vel` (rotated to the world frame) |
+| actual velocity | position in `/robot_X/odom` |
+| rule accelerations | `/robot_X/flocking/separation`, `alignment`, `cohesion`, `obstacle` |
+| total acceleration | `/robot_X/flocking/total_acceleration` |
 
-| Metric | Formula | Meaning |
-|---|---|---|
-| order (polarisation) | $\displaystyle \phi = \frac{1}{N}\left\lVert\sum_{i}\frac{\boldsymbol{v}_i}{\lVert\boldsymbol{v}_i\rVert}\right\rVert$ | 1 = all robots fly in the same direction, ≈ 0 = random directions |
-| smallest distance | $\min_{i\neq j} d_{ij}$ | collision check (robots are 0.075 m wide, so 0.075 m means touching) |
-| avg nearest-neighbour distance | $\frac{1}{N}\sum_i \min_{j\neq i} d_{ij}$ | how tight the flock is |
-| number of groups | connected groups where robots closer than $R$ are linked | 1 = one flock, more = the flock split |
-| avg neighbours seen | average of $\lvert\mathcal{N}_i\rvert$ | how much each robot can see (FOV and radius) |
+**Why actual velocity comes from the position.** Stage copies the commanded velocity into the
+twist part of `/robot_X/odom`, even when a robot is blocked and not moving. So the twist can never
+show a collision. The script compares each position with the position 20 messages later (0.2 s):
 
-The printed summary is the average over the **second half** of the run, after the flock has settled.
+$$
+\boldsymbol{v}_{actual} = \frac{\boldsymbol{x}(t + 0.2) - \boldsymbol{x}(t)}{0.2}
+$$
+
+Free robots have an actual velocity almost equal to the command, because Stage has no inertia.
+A blocked robot shows an actual velocity near zero while the command stays high.
 
 ---
 
 ## 11. Test results (how the default parameters were chosen)
+
+These are the first tuning runs. Each row is one run, so the numbers change a little between
+repeats. Later repeats of the row 5 settings had a brief contact at about 7 s.
 
 All runs: 10 robots, `empty_10x10` (unless stated), seed 42, `neighbour_radius` 1.0 m.
 "Wall" = closest distance from a robot centre to the wall surface.
@@ -719,7 +734,7 @@ All runs: 10 robots, `empty_10x10` (unless stated), seed 42, `neighbour_radius` 
 | 2 | $c_s$=0.15, min speed 0.15 | 1.00 | 0.28 m | 0.15 m | – | Good spacing, but the obstacle acceleration **flickered** on/off at the wall |
 | 3 | + squared urgency | 0.99 | 0.27 m | 0.09 m | 0.17 m | Flicker gone, but the flock **compressed** to 9 cm during the wall turn |
 | 4 | $p$=3, $c_s$=0.04 | 1.00 | 0.25 m | 0.10 m | 0.17 m | Stiffer separation, turn is smoother |
-| **5** | **$p$=3, $c_s$=0.06 (final default)** | **1.00** | **0.28 m** | **0.12 m** | **0.18 m** | **One aligned flock, no contact, smooth wall turns** |
+| **5** | **$p$=3, $c_s$=0.06 (final default)** | **1.00** | **0.28 m** | **0.12 m** | **0.18 m** | **One aligned flock, no contact in this run, smooth wall turns** |
 | 6 | FOV 270° | 0.99 | 0.30 m | 0.09 m | 0.18 m | Sees only 5.7 neighbours instead of 9, still flocks, robots get closer (cannot see behind) |
 | 7 | `obstacle_mode: field` | 1.00 | 0.28 m | 0.12 m | 0.50 m | Flock **reversed** at the corner instead of turning (the slide's "reduces movement rather than steering") |
 | 8 | `combine_mode: priority` | 1.00 | 0.28 m | 0.11 m | 0.16 m | Same as the weighted sum in open space, works |

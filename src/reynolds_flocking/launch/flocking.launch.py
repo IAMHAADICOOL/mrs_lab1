@@ -7,7 +7,6 @@
 #
 # Optional arguments:
 #     params_file:=/path/to/my_params.yaml   use another parameter file
-#     run_label:=fov_270                     name of the CSV log file
 
 import os
 
@@ -37,11 +36,6 @@ def generate_launch_description():
         default_value=default_params_file,
         description='YAML file with the flocking parameters')
 
-    run_label_argument = DeclareLaunchArgument(
-        'run_label',
-        default_value='run',
-        description='Name used at the start of the CSV log file')
-
     flocking_node = Node(
         package='reynolds_flocking',
         executable='flocking_node',
@@ -50,12 +44,10 @@ def generate_launch_description():
         parameters=[
             LaunchConfiguration('params_file'),
             {'num_robots': num_robots},
-            {'run_label': LaunchConfiguration('run_label')},
         ],
     )
 
     return LaunchDescription([
         params_file_argument,
-        run_label_argument,
         flocking_node,
     ])

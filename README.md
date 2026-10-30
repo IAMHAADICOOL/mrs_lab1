@@ -38,7 +38,7 @@ colcon build --symlink-install
 
 ## Run the lab
 
-You need two terminals. Run these commands from the workspace folder.
+You need three terminals. Run these commands from the workspace folder.
 
 **Terminal 1: start the simulator.** A Stage window should open.
 
@@ -48,44 +48,53 @@ source install/setup.bash
 ros2 launch sphero_stage start.launch.py
 ```
 
-**Terminal 2: start the flocking.** The robots should start moving.
+**Terminal 2: start recording a bag.**
 
 ```bash
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch reynolds_flocking flocking.launch.py run_label:=my_test
+ros2 launch reynolds_flocking record_bag.launch.py bag_name:=my_test
 ```
 
-`my_test` is the name of this run. It is used for the log file, so you can pick any name.
+`my_test` is the name of this run. The bag is saved in `flocking_logs/bags/my_test`. The bag is a folder, and that folder must not exist yet, so use a new name for each run.
 
-**To stop:** press `Ctrl+C` in Terminal 2 first, then in Terminal 1.
+It records these topics for every robot:
+
+- `cmd_vel`: the commanded velocity
+- `odom`: the position, used to work out the actual velocity
+- `flocking/...`: the acceleration of each rule and the total
+
+**Terminal 3: start the flocking.** The robots should start moving.
+
+```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch reynolds_flocking flocking.launch.py
+```
+
+**To stop:** press `Ctrl+C` in Terminal 3, then Terminal 2, then Terminal 1. Always stop the recording with `Ctrl+C`, because the bag is only finished when the recorder closes it.
 
 ## See the results
 
-After stopping, run this in Terminal 2. It uses the newest log in `~/flocking_logs`.
+After stopping, plot the bag:
 
 ```bash
-ros2 run reynolds_flocking plot_flocking
+ros2 run reynolds_flocking plot_flocking --bag_name my_test
 ```
 
-It prints a summary of the run and saves the plots. By default, logs and plots are saved in `~/flocking_logs`.
+This saves three plots in `flocking_logs/plots/my_test`:
 
-You can also choose which log to plot and where to save the plots:
+- `velocities_all_robots.png`: commanded and actual speed of every robot over time
+- `velocity_robot_0.png`: commanded and actual velocity of one robot, in x and y
+- `accelerations_robot_0.png`: the acceleration of each rule and the total, for one robot
 
-| Option | What it does |
-|---|---|
-| `--csv_file` | The log file to plot |
-| `--plot_folder` | The folder where the plots are saved |
-
-For example:
+You can also choose the robot and where to save the plots:
 
 ```bash
-ros2 run reynolds_flocking plot_flocking --csv_file ~/flocking_logs/my_test_20261029_101500.csv --plot_folder ~/my_plots
+ros2 run reynolds_flocking plot_flocking --bag_name my_test --robot 3 --plot_folder ~/my_plots
 ```
 
-To see the names of your log files, run `ls ~/flocking_logs/*.csv`.
-
-The plot folder is created if it does not exist. Use a different folder for each run, because plots already in that folder are replaced.
+The plot folder is created if it does not exist. Plots already in that folder are replaced.
 
 ## Change the settings
 
@@ -93,8 +102,11 @@ The plot folder is created if it does not exist. Use a different folder for each
 |---|---|
 | Map, number of robots, start positions | `src/sphero_simulation/sphero_stage/launch/launch_params.yaml` |
 | Flocking strengths, speeds, obstacle avoidance | `src/reynolds_flocking/config/flocking_params.yaml` |
+| Where bags and plots are saved (`log_folder`) | `src/reynolds_flocking/config/flocking_params.yaml` |
 
 You do not need to build again after editing these files. Just stop and start the launch commands again.
+
+`log_folder` is a full path, so change it if your workspace is in a different place.
 
 Maps you can use for `map_name`:
 

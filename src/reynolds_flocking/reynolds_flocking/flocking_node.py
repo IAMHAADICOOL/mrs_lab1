@@ -11,11 +11,8 @@
 #   4. update the velocity a little bit:  v = v + a * dt
 #   5. send the velocity to the robot on /robot_X/cmd_vel
 
-import csv
 import math
-import os
 import random
-import time
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -71,10 +68,6 @@ class FlockingNode(Node):
 
         self.combine_mode = self.declare_parameter('combine_mode', 'weighted_sum').value
 
-        self.log_to_csv = self.declare_parameter('log_to_csv', True).value
-        self.log_folder = self.declare_parameter('log_folder', '~/flocking_logs').value
-        self.run_label = self.declare_parameter('run_label', 'run').value
-
         # Time between two control steps, in seconds (dt in v = v + a * dt)
         self.dt = 1.0 / self.control_rate
 
@@ -106,7 +99,7 @@ class FlockingNode(Node):
             self.velocity_publishers.append(
                 self.create_publisher(Twist, '/' + name + '/cmd_vel', 10))
 
-            # Extra topics only for plotting (PlotJuggler, rqt_plot, ros2 bag)
+            # Extra topics only for plotting (record them with ros2 bag)
             self.separation_publishers.append(
                 self.create_publisher(Vector3Stamped, '/' + name + '/flocking/separation', 10))
             self.alignment_publishers.append(
@@ -131,14 +124,7 @@ class FlockingNode(Node):
         map_qos.reliability = ReliabilityPolicy.RELIABLE
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, map_qos)
 
-        # CSV log file (used later by plot_flocking to draw graphs)
-        self.csv_file = None
-        self.csv_writer = None
-        if self.log_to_csv:
-            self.open_log_file()
-
         # Timer: call control_step() 'control_rate' times per second
-        self.start_time = time.time()
         self.create_timer(self.dt, self.control_step)
 
         self.get_logger().info(
@@ -213,7 +199,6 @@ class FlockingNode(Node):
             self.update_heading(robot)
             self.send_velocity(robot)
             self.publish_accelerations(robot_id, result)
-            self.write_log_row(robot, result)
 
     def compute_robot(self, robot):
         """All the flocking math for one robot. Returns a dictionary with
@@ -350,7 +335,7 @@ class FlockingNode(Node):
         self.get_logger().info('All robots found. Giving random start velocities (seed '
                                + str(self.random_seed) + ').')
 
-    # Output: velocity commands, plotting topics, CSV log
+    # Output: velocity commands and plotting topics
     def send_velocity(self, robot):
         """Stage expects the velocity in the robot's own frame, so rotate the
         world velocity by -yaw. We never send a rotation (angular.z = 0)."""
@@ -385,62 +370,9 @@ class FlockingNode(Node):
         message.vector.z = 0.0
         publisher.publish(message)
 
-    def open_log_file(self):
-        folder = os.path.expanduser(self.log_folder)
-        os.makedirs(folder, exist_ok=True)
-
-        date_text = time.strftime('%Y%m%d_%H%M%S')
-        base_name = self.run_label + '_' + date_text
-        csv_path = os.path.join(folder, base_name + '.csv')
-        parameters_path = os.path.join(folder, base_name + '_params.yaml')
-
-        # Save the parameters of this run next to the data, for the report
-        parameter_names = [
-            'num_robots', 'control_rate', 'neighbour_radius', 'fov_degrees',
-            'weight_separation', 'weight_alignment', 'weight_cohesion',
-            'separation_distance_power', 'max_speed', 'min_speed', 'max_acceleration',
-            'initial_speed', 'random_seed', 'obstacle_mode', 'weight_obstacle',
-            'look_ahead', 'clearance', 'touch_distance', 'field_width', 'combine_mode',
-            'run_label']
-        with open(parameters_path, 'w') as parameters_file:
-            for name in parameter_names:
-                value = self.get_parameter(name).value
-                if isinstance(value, str):
-                    parameters_file.write(name + ": '" + value + "'\n")
-                else:
-                    parameters_file.write(name + ': ' + str(value) + '\n')
-
-        self.csv_file = open(csv_path, 'w', newline='')
-        self.csv_writer = csv.writer(self.csv_file)
-        self.csv_writer.writerow([
-            'time', 'robot', 'x', 'y',
-            'command_vx', 'command_vy', 'measured_vx', 'measured_vy',
-            'separation_x', 'separation_y', 'alignment_x', 'alignment_y',
-            'cohesion_x', 'cohesion_y', 'obstacle_x', 'obstacle_y',
-            'total_x', 'total_y', 'neighbours'])
-        self.get_logger().info('Logging to ' + csv_path)
-
-    def write_log_row(self, robot, result):
-        if self.csv_writer is None:
-            return
-        elapsed_time = time.time() - self.start_time
-        self.csv_writer.writerow([
-            round(elapsed_time, 3), robot.robot_id,
-            round(robot.x, 4), round(robot.y, 4),
-            round(robot.command_vx, 4), round(robot.command_vy, 4),
-            round(robot.measured_vx, 4), round(robot.measured_vy, 4),
-            round(result['separation_x'], 4), round(result['separation_y'], 4),
-            round(result['alignment_x'], 4), round(result['alignment_y'], 4),
-            round(result['cohesion_x'], 4), round(result['cohesion_y'], 4),
-            round(result['obstacle_x'], 4), round(result['obstacle_y'], 4),
-            round(result['total_x'], 4), round(result['total_y'], 4),
-            result['neighbours']])
-
     def stop_all_robots(self):
         for robot in self.robots:
             self.velocity_publishers[robot.robot_id].publish(Twist())
-        if self.csv_file is not None:
-            self.csv_file.close()
 
 
 def main():
@@ -455,8 +387,6 @@ def main():
     # Stop the robots before quitting (if ROS is still running)
     if rclpy.ok():
         node.stop_all_robots()
-    elif node.csv_file is not None:
-        node.csv_file.close()
     node.destroy_node()
     if rclpy.ok():
         rclpy.shutdown()

@@ -34,7 +34,8 @@ reynolds_flocking:
     # How the accelerations are combined
     combine_mode: 'weighted_sum'    # 'weighted_sum' or 'priority'
 
-    # Logging for plots
-    log_to_csv: true
-    log_folder: '~/flocking_logs'
-    run_label: 'run'                # name at the start of the log file
+# Where bags and plots are saved. record_bag.launch.py saves bags in
+# <log_folder>/bags and plot_flocking saves plots in <log_folder>/plots
+logging:
+  ros__parameters:
+    log_folder: '/home/haadi/University_of_Zagreb/mrs_ws/flocking_logs'
