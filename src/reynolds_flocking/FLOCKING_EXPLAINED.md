@@ -113,12 +113,13 @@ ros2 run reynolds_flocking flocking_node --ros-args \
 
 ```bash
 ros2 run reynolds_flocking plot_flocking                       # newest log
-ros2 run reynolds_flocking plot_flocking ~/flocking_logs/fov_270_20261028_204614.csv --robot 3
+ros2 run reynolds_flocking plot_flocking --csv_file ~/flocking_logs/fov_270_20261028_204614.csv --robot 3
 ros2 run reynolds_flocking plot_flocking --show                # also open the windows
+ros2 run reynolds_flocking plot_flocking --plot_folder ~/my_plots   # choose where to save
 ```
 
-The pictures are saved in a folder next to the CSV file (`..._plots/`), and a short
-summary of the swarm metrics is printed.
+The pictures are saved in a folder next to the CSV file (`..._plots/`), or in
+`--plot_folder` if you give one, and a short summary of the swarm metrics is printed.
 
 You can also watch the values live in PlotJuggler or `rqt_plot`. The node publishes, for every robot:
 

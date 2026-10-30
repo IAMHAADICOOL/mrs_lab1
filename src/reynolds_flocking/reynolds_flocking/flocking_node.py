@@ -43,9 +43,8 @@ class FlockingNode(Node):
     def __init__(self):
         super().__init__('reynolds_flocking')
 
-        # ------------------------------------------------------------------
+        
         # 1. Read all parameters (values come from config/flocking_params.yaml)
-        # ------------------------------------------------------------------
         self.num_robots = self.declare_parameter('num_robots', 10).value
         self.control_rate = self.declare_parameter('control_rate', 20.0).value
 
@@ -79,9 +78,8 @@ class FlockingNode(Node):
         # Time between two control steps, in seconds (dt in v = v + a * dt)
         self.dt = 1.0 / self.control_rate
 
-        # ------------------------------------------------------------------
+        
         # 2. Create one RobotState for every robot
-        # ------------------------------------------------------------------
         self.robots = []
         for robot_id in range(self.num_robots):
             self.robots.append(RobotState(robot_id))
@@ -94,9 +92,7 @@ class FlockingNode(Node):
         self.started = False
         self.random_generator = random.Random(self.random_seed)
 
-        # ------------------------------------------------------------------
         # 3. Publishers and subscribers for every robot
-        # ------------------------------------------------------------------
         self.velocity_publishers = []
         self.separation_publishers = []
         self.alignment_publishers = []
@@ -128,22 +124,20 @@ class FlockingNode(Node):
 
         # The map server sends the map only once, and keeps it for late
         # subscribers ("transient local"). Our subscriber must ask for that too.
+        # the following QoS settings are required after checking the 
+        # topic settings in the terminal.
         map_qos = QoSProfile(depth=1)
         map_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
         map_qos.reliability = ReliabilityPolicy.RELIABLE
         self.create_subscription(OccupancyGrid, '/map', self.map_callback, map_qos)
 
-        # ------------------------------------------------------------------
-        # 4. CSV log file (used later by plot_flocking to draw graphs)
-        # ------------------------------------------------------------------
+        # CSV log file (used later by plot_flocking to draw graphs)
         self.csv_file = None
         self.csv_writer = None
         if self.log_to_csv:
             self.open_log_file()
 
-        # ------------------------------------------------------------------
-        # 5. Timer: call control_step() 'control_rate' times per second
-        # ------------------------------------------------------------------
+        # Timer: call control_step() 'control_rate' times per second
         self.start_time = time.time()
         self.create_timer(self.dt, self.control_step)
 
@@ -154,9 +148,7 @@ class FlockingNode(Node):
             + 'obstacle_mode=' + self.obstacle_mode + ', '
             + 'combine_mode=' + self.combine_mode)
 
-    # ----------------------------------------------------------------------
     # Callbacks: store incoming data
-    # ----------------------------------------------------------------------
     def odom_callback(self, msg):
         """Save the position and velocity of one robot.
         frame_id looks like 'robot_3/odom' -> this message is for robot 3."""
@@ -188,14 +180,12 @@ class FlockingNode(Node):
             'Map received: ' + str(msg.info.width) + ' x ' + str(msg.info.height)
             + ' cells, ' + str(msg.info.resolution) + ' m per cell')
 
-    # ----------------------------------------------------------------------
     # The main loop
-    # ----------------------------------------------------------------------
     def control_step(self):
         # Wait until we know where every robot is
         for robot in self.robots:
             if not robot.has_odom:
-                self.get_logger().info('Waiting for odom from all robots...', throttle_duration_sec=2.0)
+                self.get_logger().info('Waiting for odom from all robots', throttle_duration_sec=2.0)
                 return
 
         if not self.started:
@@ -206,16 +196,14 @@ class FlockingNode(Node):
             self.get_logger().warn('No map received yet, obstacle avoidance is off for now',
                                    throttle_duration_sec=2.0)
 
-        # Compute the new velocity of EVERY robot first ...
+        # Compute the new velocity of every robot first 
         results = []
         for robot in self.robots:
             result = self.compute_robot(robot)
             results.append(result)
 
-        # ... and only then send them, so every robot used the same snapshot
+        # and only then send them, so every robot used the same snapshot
         for robot_id in range(self.num_robots):
-            # Ctrl+C may arrive in the middle of this loop. Then ROS is
-            # already shut down and publishing would crash, so just stop.
             if not rclpy.ok():
                 return
             robot = self.robots[robot_id]
@@ -231,19 +219,19 @@ class FlockingNode(Node):
         """All the flocking math for one robot. Returns a dictionary with
         every acceleration and the new velocity."""
 
-        # Step 1: who can I see?
+        # 1: who can I see?
         neighbours = find_neighbours(robot, self.robots, self.neighbour_radius, self.fov_degrees)
 
-        # Step 2: the three Reynolds rules
+        # 2: the three Reynolds rules
         separation_x, separation_y = separation_rule(
             robot, neighbours, self.weight_separation, self.separation_distance_power)
         alignment_x, alignment_y = alignment_rule(robot, neighbours, self.weight_alignment)
         cohesion_x, cohesion_y = cohesion_rule(robot, neighbours, self.weight_cohesion)
 
-        # Step 3: obstacle avoidance
+        # 3: obstacle avoidance
         obstacle_x, obstacle_y = self.compute_obstacle_acceleration(robot)
 
-        # Step 4: combine everything into one acceleration
+        # 4: combine everything into one acceleration
         if self.combine_mode == 'priority':
             total_x, total_y = self.combine_with_priority(
                 [[obstacle_x, obstacle_y],
@@ -257,7 +245,7 @@ class FlockingNode(Node):
             # A real robot cannot accelerate faster than its motors allow
             total_x, total_y = limit_vector(total_x, total_y, self.max_acceleration)
 
-        # Step 5: change the velocity a little bit:  v_new = v_old + a * dt
+        # 5: change the velocity a little bit:  v_new = v_old + a * dt
         new_vx = robot.command_vx + total_x * self.dt
         new_vy = robot.command_vy + total_y * self.dt
         new_vx, new_vy = self.limit_speed(new_vx, new_vy, robot)
@@ -283,6 +271,9 @@ class FlockingNode(Node):
             touch_x, touch_y = touch_sensor(
                 self.obstacle_map, robot, self.touch_distance, self.weight_obstacle)
             return steer_x + touch_x, steer_y + touch_y
+        # both are combined so that one covers the blind spots of the other. 
+        # The touch sensor is very short range, but it can detect walls that are too close to the robot's side. 
+        # The tube is a long range sensor, but it has blind spots on the sides of the robot.
 
         if self.obstacle_mode == 'field':
             return force_field(self.obstacle_map, robot, self.field_width, self.weight_obstacle)
@@ -359,9 +350,7 @@ class FlockingNode(Node):
         self.get_logger().info('All robots found. Giving random start velocities (seed '
                                + str(self.random_seed) + ').')
 
-    # ----------------------------------------------------------------------
     # Output: velocity commands, plotting topics, CSV log
-    # ----------------------------------------------------------------------
     def send_velocity(self, robot):
         """Stage expects the velocity in the robot's own frame, so rotate the
         world velocity by -yaw. We never send a rotation (angular.z = 0)."""

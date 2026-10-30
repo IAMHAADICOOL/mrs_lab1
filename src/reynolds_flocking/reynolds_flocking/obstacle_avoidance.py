@@ -73,6 +73,8 @@ class ObstacleMap:
         direction_x = math.cos(direction_angle)
         direction_y = math.sin(direction_angle)
         # Vector pointing to the left of the direction of travel
+        # we are taking normal direction here, and we know that 
+        # the normal vector is (-y, x) for a vector (x, y)
         side_x = -direction_y
         side_y = direction_x
 
@@ -114,9 +116,11 @@ class ObstacleMap:
         for row in range(robot_row - cells_to_search, robot_row + cells_to_search + 1):
             for column in range(robot_column - cells_to_search, robot_column + cells_to_search + 1):
                 # Centre of this cell in world coordinates
+                # Adding half a cell lands in the middle of the square
                 cell_x = self.origin_x + (column + 0.5) * self.resolution
                 cell_y = self.origin_y + (row + 0.5) * self.resolution
-
+                # this granularity is for computing the distance variable
+                
                 if not self.is_wall(cell_x, cell_y):
                     continue
 
@@ -132,7 +136,6 @@ class ObstacleMap:
 
 def steer_to_avoid(obstacle_map, robot, look_ahead, clearance, weight_obstacle):
     """Method 1: Steer to avoid (picture with circles A, B, C on the slide).
-
     1. Look ahead along the heading. If the tube is free -> do nothing.
        (Obstacles behind or beside us are ignored, so obstacles we already
        passed have no effect.)
@@ -182,10 +185,14 @@ def steer_to_avoid(obstacle_map, robot, look_ahead, clearance, weight_obstacle):
     # gives the change of direction we want: the steering vector.
     steer_x = math.cos(best_angle) - math.cos(heading)
     steer_y = math.sin(best_angle) - math.sin(heading)
+    # when no better angle could be found inside the loop
+    # and therefore, best_anlge == heading, then steer_x and steer_y are both 0.0
     steer_length = vector_length(steer_x, steer_y)
     if steer_length < 0.000001:
         return 0.0, 0.0
-
+    # the above check and return prevents division by zero in the next line
+    # unit vector in steer direction is (steer_x + steer_y)/steer_length.
+    # the following are the components of it 
     acceleration_x = weight_obstacle * urgency * steer_x / steer_length
     acceleration_y = weight_obstacle * urgency * steer_y / steer_length
     return acceleration_x, acceleration_y
@@ -199,6 +206,7 @@ def touch_sensor(obstacle_map, robot, touch_distance, weight_obstacle):
     if not found:
         return 0.0, 0.0
 
+    # to stop division by zero in the next line
     if distance < 0.001:
         distance = 0.001
 
@@ -225,7 +233,7 @@ def force_field(obstacle_map, robot, field_width, weight_obstacle):
       - Driving straight at a wall it only slows the robot down instead of
         steering it to the side.
     """
-    search_radius = 3.0 * field_width
+    search_radius = 3.0 * field_width # how far to look for the walls
     found, wall_x, wall_y, distance = obstacle_map.nearest_wall_point(robot.x, robot.y, search_radius)
     if not found:
         return 0.0, 0.0

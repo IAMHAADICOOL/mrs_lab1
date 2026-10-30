@@ -1,7 +1,3 @@
-# This file contains the three basic Reynolds rules: separation, alignment
-# and cohesion. It also contains the function that decides who is a
-# neighbour. There is no ROS code in this file, only math.
-#
 # The formula from the lecture (slide "Combining accelerations") is:
 #
 #   acceleration_i =   c_a / |N_i| * sum( v_j ) - v_i                         (alignment)
@@ -90,12 +86,18 @@ def is_neighbour(my_robot, other_robot, neighbour_radius, fov_degrees):
         return True
 
     # Rule 2: must be inside the field of view.
-    # angle_to_other is the direction from me to the other robot.
+    # angle_to_other is the direction from me to the other robot, measured along the world x-axis
     angle_to_other = math.atan2(dy, dx)
+    
     # How far is that direction from where I am heading?
     angle_difference = wrap_angle(angle_to_other - my_robot.heading)
+    # angle_difference subtracts my heading from that, giving "how far is the other robot from straight ahead?"
+    # positive means it's to my left
+    # negative means it's to my right
     half_fov = math.radians(fov_degrees) / 2.0
 
+    # if the other robot is within the fov, it can either be on right or on left, 
+    # so we take the absolute value of the angle difference and compare it to half the fov
     if abs(angle_difference) <= half_fov:
         return True
     return False

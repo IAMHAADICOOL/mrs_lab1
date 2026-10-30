@@ -2,11 +2,13 @@
 #
 # Usage:
 #     ros2 run reynolds_flocking plot_flocking                 (newest log in ~/flocking_logs)
-#     ros2 run reynolds_flocking plot_flocking my_run.csv      (a specific log)
-#     ros2 run reynolds_flocking plot_flocking my_run.csv --robot 3
+#     ros2 run reynolds_flocking plot_flocking --csv_file my_run.csv      (a specific log)
+#     ros2 run reynolds_flocking plot_flocking --csv_file my_run.csv --robot 3
 #     ros2 run reynolds_flocking plot_flocking --show          (also open the windows)
+#     ros2 run reynolds_flocking plot_flocking --plot_folder ~/my_plots
 #
-# It saves these pictures in a folder next to the CSV file:
+# It saves these pictures in a folder next to the CSV file, or in
+# 'plot_folder' if you give one:
 #     velocities_all_robots.png  commanded vs. actual speed, one small graph per robot
 #     velocity_robot_X.png       commanded vs. actual vx and vy of one robot
 #     accelerations_robot_X.png  separation, alignment, cohesion, obstacle and total
@@ -323,11 +325,13 @@ def plot_trajectories(robots, output_folder, pyplot):
 
 def main():
     parser = argparse.ArgumentParser(description='Plot a flocking CSV log')
-    parser.add_argument('csv_file', nargs='?', default=None,
+    parser.add_argument('--csv_file', default=None,
                         help='CSV log file (default: newest one in ~/flocking_logs)')
     parser.add_argument('--robot', type=int, default=0, help='robot used for the detailed plots')
     parser.add_argument('--show', action='store_true', help='open the plot windows')
-    arguments, unknown = parser.parse_known_args()
+    parser.add_argument('--plot_folder', default=None,
+                        help='folder for the pictures (default: a folder next to the CSV file)')
+    arguments = parser.parse_args()
 
     if not arguments.show:
         matplotlib.use('Agg')   # only save pictures, do not open windows
@@ -352,7 +356,10 @@ def main():
         print('Robot ' + str(arguments.robot) + ' is not in the log')
         return
 
-    output_folder = csv_path.replace('.csv', '_plots')
+    if arguments.plot_folder is None:
+        output_folder = csv_path.replace('.csv', '_plots')
+    else:
+        output_folder = os.path.abspath(os.path.expanduser(arguments.plot_folder))
     os.makedirs(output_folder, exist_ok=True)
 
     metrics = compute_swarm_metrics(steps, neighbour_radius)
