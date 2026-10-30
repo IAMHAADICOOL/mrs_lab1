@@ -11,7 +11,7 @@
 #
 # It saves these pictures in <log_folder>/plots/<bag name>, or in 'plot_folder'
 # if you give one:
-#     velocities_all_robots.png  commanded vs. actual speed, one small graph per robot
+#     velocities_all_robots.png  commanded vs. actual vx and vy of every robot
 #     velocity_robot_X.png       commanded vs. actual vx and vy of one robot
 #     accelerations_robot_X.png  separation, alignment, cohesion, obstacle and total
 #
@@ -178,39 +178,37 @@ def length(x, y):
 
 
 def plot_all_velocities(robots, output_folder, pyplot):
+    """One row per robot: vx on the left and vy on the right."""
     robot_ids = sorted(robots.keys())
-    number_of_robots = len(robot_ids)
-    columns = 2
-    rows = int(math.ceil(number_of_robots / columns))
+    rows = len(robot_ids)
 
-    figure, axes = pyplot.subplots(rows, columns, figsize=(12, 2.2 * rows), sharex=True, squeeze=False)
-    for index in range(rows * columns):
-        axis = axes[index // columns][index % columns]
-        if index >= number_of_robots:
-            axis.axis('off')
-            continue
-        robot = robots[robot_ids[index]]
+    figure, axes = pyplot.subplots(rows, 2, figsize=(18, 2.6 * rows), sharex=True, squeeze=False)
+    for row in range(rows):
+        robot = robots[robot_ids[row]]
+        name = 'robot_' + str(robot_ids[row])
 
-        commanded_speed = []
-        for k in range(len(robot['command_time'])):
-            commanded_speed.append(length(robot['command_vx'][k], robot['command_vy'][k]))
-        actual_speed = []
-        for k in range(len(robot['actual_time'])):
-            actual_speed.append(length(robot['actual_vx'][k], robot['actual_vy'][k]))
+        axes[row][0].plot(robot['command_time'], robot['command_vx'], label='commanded')
+        axes[row][0].plot(robot['actual_time'], robot['actual_vx'], '--', label='actual')
+        axes[row][0].set_title(name + ': vx', fontsize=11)
+        axes[row][0].set_ylabel('vx [m/s]')
 
-        axis.plot(robot['command_time'], commanded_speed, label='commanded')
-        axis.plot(robot['actual_time'], actual_speed, '--', label='actual')
-        axis.set_title('robot_' + str(robot_ids[index]), fontsize=9)
-        axis.set_ylabel('speed [m/s]')
-        axis.set_xlim(left=0.0)
-        axis.grid(True)
-    axes[0][0].legend(fontsize=8)
+        axes[row][1].plot(robot['command_time'], robot['command_vy'], label='commanded')
+        axes[row][1].plot(robot['actual_time'], robot['actual_vy'], '--', label='actual')
+        axes[row][1].set_title(name + ': vy', fontsize=11)
+        axes[row][1].set_ylabel('vy [m/s]')
+
+        for axis in axes[row]:
+            axis.set_xlim(left=0.0)
+            axis.grid(True)
+
+    axes[0][0].legend(fontsize=10)
     axes[rows - 1][0].set_xlabel('time [s]')
     axes[rows - 1][1].set_xlabel('time [s]')
-    figure.suptitle('Commanded vs. actual speed of every robot')
+    figure.suptitle('Commanded vs. actual velocity of every robot', fontsize=14)
     figure.tight_layout()
     path = os.path.join(output_folder, 'velocities_all_robots.png')
-    figure.savefig(path, dpi=120)
+    # High resolution, so the picture stays sharp when you zoom in
+    figure.savefig(path, dpi=250)
     return path
 
 

@@ -84,7 +84,7 @@ ros2 run reynolds_flocking plot_flocking --bag_name my_test
 
 This saves three plots in `flocking_logs/plots/my_test`:
 
-- `velocities_all_robots.png`: commanded and actual speed of every robot over time
+- `velocities_all_robots.png`: commanded and actual vx and vy of every robot over time
 - `velocity_robot_0.png`: commanded and actual velocity of one robot, in x and y
 - `accelerations_robot_0.png`: the acceleration of each rule and the total, for one robot
 

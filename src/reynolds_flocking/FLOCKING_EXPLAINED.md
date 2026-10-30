@@ -694,7 +694,7 @@ with "publisher's context is invalid".
 
 | File | Lab requirement |
 |---|---|
-| `velocities_all_robots.png` | 4a – commanded vs. actual speed of **every** robot over time |
+| `velocities_all_robots.png` | 4a – commanded vs. actual $v_x$ and $v_y$ of **every** robot over time |
 | `velocity_robot_X.png` | 4a – commanded vs. actual $v_x$ and $v_y$ of one robot |
 | `accelerations_robot_X.png` | 4b – separation, alignment, cohesion, obstacle and **total** acceleration of one robot (x, y and size) |
 
