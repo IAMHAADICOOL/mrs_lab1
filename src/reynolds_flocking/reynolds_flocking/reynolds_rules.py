@@ -23,7 +23,7 @@ class RobotState:
 
         # Orientation of the robot body in the world (radians), read from odom.
         # We never rotate the robots, so this stays around 0.
-        self.yaw = 0.0
+        # self.yaw = 0.0
 
         # Measured velocity in the world frame (metres per second), read from odom
         self.measured_vx = 0.0
@@ -141,6 +141,8 @@ def separation_rule(my_robot, neighbours, weight_separation, distance_power):
 
         # (x_j - x_i) / |x_j - x_i|^p
         divider = distance ** distance_power
+        # distances are smaller than 1, so increasing power
+        # makes the push bigger.
         sum_x = sum_x + dx / divider
         sum_y = sum_y + dy / divider
 

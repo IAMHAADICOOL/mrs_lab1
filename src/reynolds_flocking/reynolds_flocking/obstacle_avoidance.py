@@ -78,12 +78,14 @@ class ObstacleMap:
         side_x = -direction_y
         side_y = direction_x
 
+        k = 1 # relation between distance and the width of the tube, 
         step = self.resolution
         distance = step
         while distance <= look_ahead:
             # The tube starts pointed (like a pencil tip) and then gets wider
-            if distance < clearance:
-                tube_half_width = distance
+            width = k * distance
+            if width < clearance:
+                tube_half_width = width
             else:
                 tube_half_width = clearance
 
@@ -159,7 +161,11 @@ def steer_to_avoid(obstacle_map, robot, look_ahead, clearance, weight_obstacle):
     # gives a strong push.
     closeness = 1.0 - distance_ahead / look_ahead
     urgency = closeness * closeness
-
+    # Without urgency, the push would be on or off.
+    # weight_obstacle is fixed. It's the largest push the robot can get, 1.0 m/s².
+    # urgency changes every step. It scales that 
+    # push by how close the wall is ahead, from 0 to 1.  
+    
     # Search for the closest free direction, turning left and right
     best_angle = heading
     best_free_distance = distance_ahead

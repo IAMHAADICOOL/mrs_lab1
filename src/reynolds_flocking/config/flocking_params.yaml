@@ -8,7 +8,7 @@ reynolds_flocking:
 
     # Neighbourhood (what a robot can "see")
     neighbour_radius: 1.0           # metres
-    fov_degrees: 360.0              # field of view, 360 = sees all around, 270 = blind spot behind
+    fov_degrees: 270.0              # field of view, 360 = sees all around, 270 = blind spot behind
 
     # Reynolds rule weights (c_s, c_a, c_c in the lecture formula)
     weight_separation: 0.06         # c_s, push away from neighbours
@@ -17,10 +17,10 @@ reynolds_flocking:
     separation_distance_power: 3.0  # 2.0 = lecture formula (push ~ 1/d), 3.0 = push ~ 1/d^2 (stiffer, chosen)
 
     # Robot limits (what a real robot could do)
-    max_speed: 0.3                  # m/s
-    min_speed: 0.15                 # m/s, robots never stop (like birds)
-    max_acceleration: 0.5           # m/s^2
-    initial_speed: 0.15             # m/s, size of the random start velocity
+    max_speed: 0.3                  
+    min_speed: 0.15                 # robots never stop (like birds)
+    max_acceleration: 0.5         
+    initial_speed: 0.15             # size of the random start velocity
     random_seed: 42                 # same seed = same run every time
 
     # Obstacle (wall) avoidance
